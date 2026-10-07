@@ -60,14 +60,47 @@ jobs:
       - name: Authenticate to Cloud Storage
         env:
           GCP_SA_KEY: ${{ secrets.STORAGE_CREDENTIALS }}
+          ARTIFACT_BUCKET: ${{ secrets.ARTIFACT_BUCKET }}
         run: |
           if [ -z "$GCP_SA_KEY" ]; then
-            echo "ERROR: secret STORAGE_CREDENTIALS is empty! Please check GitHub Secrets."
+            echo "::error::Secret STORAGE_CREDENTIALS is empty! Please check GitHub Secrets."
             exit 1
           fi
-          echo "$GCP_SA_KEY" > sa-key.json
-          echo "$GCP_SA_KEY" > /tmp/sa-key.json
+
+          python - <<'PYEOF'
+          import os, json, sys
+
+          raw = os.environ.get("GCP_SA_KEY", "").strip()
+          try:
+              data = json.loads(raw)
+              print(f"Successfully parsed STORAGE_CREDENTIALS JSON for: {data.get('client_email')}")
+          except Exception as e:
+              print(f"::error::Failed to parse STORAGE_CREDENTIALS as JSON: {e}")
+              print(f"Secret length: {len(raw)} chars. Starts with: {repr(raw[:40])}")
+              sys.exit(1)
+
+          # Write to repo root, parent dir, and /tmp
+          with open("sa-key.json", "w", encoding="utf-8") as f:
+              json.dump(data, f, indent=2)
+
+          with open("../sa-key.json", "w", encoding="utf-8") as f:
+              json.dump(data, f, indent=2)
+
+          with open("/tmp/sa-key.json", "w", encoding="utf-8") as f:
+              json.dump(data, f, indent=2)
+
+          # Verify GCS access directly
+          from google.cloud import storage
+          os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "/tmp/sa-key.json"
+          bucket_name = os.environ.get("ARTIFACT_BUCKET", "income-lab-hongson-510906")
+          client = storage.Client()
+          bucket = client.bucket(bucket_name)
+          blobs = list(bucket.list_blobs(max_results=1))
+          print(f"GCS bucket connection verified: gs://{bucket_name}")
+          PYEOF
+
           echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa-key.json" >> $GITHUB_ENV
+          dvc remote modify --local labstore credentialpath "$(pwd)/sa-key.json"
 
       - name: Pull data with DVC
         run: dvc pull data/train_batch1.csv.dvc data/holdout.csv.dvc
