@@ -218,6 +218,17 @@ jobs:
             ${{ secrets.SERVER_SSH_KEY }}
           script: |
             sudo systemctl restart income-api
-            sleep 5
-            curl -sf http://localhost:8080/healthz && echo "Health check passed." || exit 1
+            # Server tai model tu GCS khi khoi dong -> cho toi da 60s thay vi sleep co dinh
+            for i in $(seq 1 30); do
+              if curl -sf http://localhost:8080/healthz; then
+                echo ""
+                echo "Health check passed after $((i * 2))s."
+                exit 0
+              fi
+              sleep 2
+            done
+            echo "Health check failed after 60s. Service logs:"
+            sudo systemctl status income-api --no-pager || true
+            sudo journalctl -u income-api -n 50 --no-pager || true
+            exit 1
 
