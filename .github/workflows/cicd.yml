@@ -187,13 +187,37 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
+      - name: Verify SSH secrets
+        env:
+          SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          HOST: ${{ secrets.SERVER_HOST }}
+          USER: ${{ secrets.SERVER_USER }}
+        run: |
+          if [ -z "$SSH_KEY" ]; then
+            echo "::error::Secret SERVER_SSH_KEY is empty or does not exist! Please check GitHub Settings -> Secrets -> Actions -> Repository Secrets."
+            exit 1
+          fi
+          if [ -z "$HOST" ]; then
+            echo "::error::Secret SERVER_HOST is empty!"
+            exit 1
+          fi
+          if [ -z "$USER" ]; then
+            echo "::error::Secret SERVER_USER is empty!"
+            exit 1
+          fi
+          echo "SERVER_HOST is set ($HOST)"
+          echo "SERVER_USER is set ($USER)"
+          echo "SERVER_SSH_KEY length: ${#SSH_KEY} characters"
+
       - name: SSH deploy to VM
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
+          key: |
+            ${{ secrets.SERVER_SSH_KEY }}
           script: |
             sudo systemctl restart income-api
             sleep 5
             curl -sf http://localhost:8080/healthz && echo "Health check passed." || exit 1
+
