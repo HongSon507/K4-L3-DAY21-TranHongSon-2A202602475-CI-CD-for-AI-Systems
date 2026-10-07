@@ -1,5 +1,9 @@
 import pandas as pd
 import os
+import ssl
+
+# Bypass SSL certificate verification issues for dataset downloading
+ssl._create_default_https_context = ssl._create_unverified_context
 
 TRAIN_URL = "https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data"
 TEST_URL  = "https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.test"
