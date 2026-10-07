@@ -57,8 +57,15 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Authenticate to Cloud Storage
+        env:
+          GCP_SA_KEY: ${{ secrets.STORAGE_CREDENTIALS }}
         run: |
-          echo '${{ secrets.STORAGE_CREDENTIALS }}' > /tmp/sa-key.json
+          if [ -z "$GCP_SA_KEY" ]; then
+            echo "ERROR: secret STORAGE_CREDENTIALS is empty! Please check GitHub Secrets."
+            exit 1
+          fi
+          echo "$GCP_SA_KEY" > sa-key.json
+          echo "$GCP_SA_KEY" > /tmp/sa-key.json
           echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa-key.json" >> $GITHUB_ENV
 
       - name: Pull data with DVC
